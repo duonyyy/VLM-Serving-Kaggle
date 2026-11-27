@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from enum import Enum
-from typing import Tuple
+from typing import Any, Tuple
 from PIL import Image
 
 from packages.telemetry.logging import get_logger

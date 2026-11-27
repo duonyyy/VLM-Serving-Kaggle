@@ -53,6 +53,14 @@ htmlcov/
 outputs/
 scratch/
 node_modules/
+*.zip
+*.tar.gz
+
+# Evaluation generated outputs
+evaluation/results/*
+!evaluation/results/.gitkeep
+evaluation/reports/*
+!evaluation/reports/.gitkeep
 
 # Environment and sensitive files
 .env

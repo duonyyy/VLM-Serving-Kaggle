@@ -33,10 +33,9 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
 
-      - name: Run Phase 0 Regression Tests
+      - name: Run OCR Benchmark Regression Tests
         run: |
-          python -m unittest discover -s vlm_phase0/tests -v
-          python -m unittest discover -s vlm_phase0/kaggle_vietnamese_ocr/tests -v
+          python -m unittest discover -s research/ocr_benchmark/tests -v
 
       - name: Run Phase 4 Ablation Pipeline Verification
         run: |

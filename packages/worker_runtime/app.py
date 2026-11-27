@@ -2,28 +2,20 @@
 
 from __future__ import annotations
 
-import json
+import asyncio
 import time
-import uuid
 from typing import Any
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from packages.contracts.chat import (
-    ChatChoice,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatResponseMessage,
-    TimingBreakdown,
-    UsageInfo,
-)
+from packages.contracts.chat import ChatCompletionRequest, ChatCompletionResponse
 from packages.contracts.errors import ErrorDetail, ErrorResponse
 from packages.contracts.extraction import ExtractionRequest, ExtractionResponse
-from packages.contracts.models import HealthResponse, ModelCard, ModelListResponse
-from packages.image_processing.decoder import decode_image
+from packages.contracts.models import HealthResponse, ModelCard, ModelListResponse, matches_model_id
 from packages.telemetry.context import get_request_id, set_request_id
 from packages.telemetry.logging import get_logger
+from .executor import execute_chat_completion, execute_extraction
 from .manager import ModelManager
 
 logger = get_logger("worker_api")
@@ -131,118 +123,25 @@ def create_app(manager: ModelManager | None = None) -> FastAPI:
 
     @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
     async def chat_completions_endpoint(payload: ChatCompletionRequest) -> ChatCompletionResponse:
-        start_e2e = time.perf_counter()
-        req_id = get_request_id()
-
         adapter = model_manager.get_adapter()
-        user_prompt = payload.get_user_prompt()
-        if not user_prompt:
-            raise ValueError("Chat messages must contain at least one non-empty user prompt")
-
-        # Decode image if provided
-        image_urls = payload.get_image_urls()
-        decoded_image = None
-        prep_start = time.perf_counter()
-        if image_urls:
-            first_image_src = image_urls[0]
-            try:
-                decoded_image, _ = decode_image(first_image_src)
-            except Exception as exc:
-                raise ValueError(f"Failed to process input image: {exc}") from exc
-        image_prep_time_ms = (time.perf_counter() - prep_start) * 1000
-
-        # Concurrency-safe inference
-        async with model_manager.lock:
-            result = adapter.infer(
-                prompt=user_prompt,
-                image=decoded_image,
-                max_tokens=payload.max_tokens,
-                temperature=payload.temperature,
-                **payload.extra_params,
+        if payload.model and not matches_model_id(payload.model, adapter.model_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model '{payload.model}' not found on this worker (serving '{adapter.model_id}')",
             )
-
-        total_elapsed_ms = round((time.perf_counter() - start_e2e) * 1000, 3)
-
-        return ChatCompletionResponse(
-            id=f"chatcmpl-{uuid.uuid4().hex[:12]}",
-            model=adapter.model_id,
-            choices=[
-                ChatChoice(
-                    index=0,
-                    message=ChatResponseMessage(content=result.prediction_text),
-                    finish_reason=result.finish_reason,
-                )
-            ],
-            usage=UsageInfo(
-                prompt_tokens=result.input_tokens,
-                completion_tokens=result.output_tokens,
-                total_tokens=result.input_tokens + result.output_tokens,
-            ),
-            timing=TimingBreakdown(
-                preprocessing_ms=round(result.preprocessing_ms + image_prep_time_ms, 3),
-                inference_ms=round(result.inference_ms, 3),
-                total_ms=total_elapsed_ms,
-            ),
-        )
+        async with model_manager.lock:
+            return await asyncio.to_thread(execute_chat_completion, adapter, payload)
 
     @app.post("/v1/extract", response_model=ExtractionResponse)
     async def structured_extract_endpoint(payload: ExtractionRequest) -> ExtractionResponse:
-        start_e2e = time.perf_counter()
         req_id = get_request_id()
-
         adapter = model_manager.get_adapter()
-
-        # Decode image
-        decoded_image, _ = decode_image(payload.image_url)
-
-        prompt = payload.prompt or (
-            "Trích xuất thông tin hóa đơn sang JSON với các trường: seller_name, invoice_number, invoice_date, total_amount, currency."
-            if payload.schema_name == "invoice"
-            else f"Trích xuất các trường {payload.fields} sang JSON."
-        )
-
+        if payload.model and not matches_model_id(payload.model, adapter.model_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model '{payload.model}' not found on this worker (serving '{adapter.model_id}')",
+            )
         async with model_manager.lock:
-            result = adapter.infer(prompt=prompt, image=decoded_image, max_tokens=512)
-
-        # Attempt JSON parse of prediction
-        parsed_data: dict[str, Any] = {}
-        parse_status = "completed"
-        try:
-            # Look for JSON markdown block or raw JSON
-            raw_text = result.prediction_text.strip()
-            if "```json" in raw_text:
-                json_part = raw_text.split("```json")[1].split("```")[0].strip()
-                parsed_data = json.loads(json_part)
-            elif "```" in raw_text:
-                json_part = raw_text.split("```")[1].split("```")[0].strip()
-                parsed_data = json.loads(json_part)
-            elif raw_text.startswith("{") and raw_text.endswith("}"):
-                parsed_data = json.loads(raw_text)
-            else:
-                parsed_data = {"raw": raw_text}
-                parse_status = "partial"
-        except Exception:
-            parsed_data = {"raw": result.prediction_text}
-            parse_status = "partial"
-
-        total_elapsed_ms = round((time.perf_counter() - start_e2e) * 1000, 3)
-
-        return ExtractionResponse(
-            request_id=req_id,
-            model=adapter.model_id,
-            status=parse_status,
-            data=parsed_data,
-            raw_text=result.prediction_text,
-            usage=UsageInfo(
-                prompt_tokens=result.input_tokens,
-                completion_tokens=result.output_tokens,
-                total_tokens=result.input_tokens + result.output_tokens,
-            ),
-            timing=TimingBreakdown(
-                preprocessing_ms=result.preprocessing_ms,
-                inference_ms=result.inference_ms,
-                total_ms=total_elapsed_ms,
-            ),
-        )
+            return await asyncio.to_thread(execute_extraction, adapter, payload, req_id)
 
     return app

@@ -1,0 +1,512 @@
+[
+  {
+    "path": "apps/__init__.py",
+    "sha256": "9941204299350574b619eace3e9863f12fc064108c4d115d04096cec0a1ba823",
+    "lines": 1,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/__init__.py",
+    "sha256": "cac27706a65323f69d13ad980fbbe5de00ed84c82a23a23767fb818c28a6126b",
+    "lines": 8,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/app.py",
+    "sha256": "836b9432f1067461c051de4c37f595023f1039ed02845fc156b504733bc50090",
+    "lines": 346,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/config.py",
+    "sha256": "788c024866ef4cdd7546ce763902bc3f62160556fa40929b1774ee17f346ff89",
+    "lines": 52,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/dispatcher.py",
+    "sha256": "8f77b7d7b91ba38c7f680cc5c198351191e01879cd61cfeec62ba0eaf8073043",
+    "lines": 315,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/registry.py",
+    "sha256": "865ecd5f02276d2d76ace9893e9ed10da4c13bef1de0784ad631ed1665147334",
+    "lines": 149,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/scheduler.py",
+    "sha256": "ec4b3bb8beb1f43d0517f82a2b1d4f940d1d6004501734e06def9cc682237d22",
+    "lines": 86,
+    "test_methods": 0
+  },
+  {
+    "path": "apps/gateway/server.py",
+    "sha256": "3bd84eb7e1cf659be5f1e431ad32dc9057a64d5a5c1a01bae4f12bb01b32cb9c",
+    "lines": 43,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/__init__.py",
+    "sha256": "32111e0c257bf7c5820e618d0e0e48349e92708d39bd9303e41749593902e397",
+    "lines": 2,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/caching/__init__.py",
+    "sha256": "0047597865037b52cf8c97551c6f43c249a7e49c3721f94b1d168d377654af78",
+    "lines": 5,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/caching/cache.py",
+    "sha256": "b3c53bd337e14b4c556c3b02217d4439920178bbe9bb0888a6093b351496d69a",
+    "lines": 149,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/__init__.py",
+    "sha256": "ad2574f195e2fc09382aa26a5d0f49538c7c5281d405eccdd3cd45c41c8ce139",
+    "lines": 59,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/chat.py",
+    "sha256": "1fccda919e1a4c16aaa29c89aa19ecae37c080405aa32f5c277ad447dd044528",
+    "lines": 109,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/errors.py",
+    "sha256": "6579443813993d7b9284d073ffd278581e54e5280e528af06cec0d7483bd995f",
+    "lines": 17,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/extraction.py",
+    "sha256": "2868b7235517dea94ca641a31ca709aec1d9f1c18770036ed0f08c75b45bdc32",
+    "lines": 37,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/models.py",
+    "sha256": "d32f691348cfc93ec513cfa9e53159a01dbdf0a5f5dfcc97790d52e96293a024",
+    "lines": 95,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/contracts/protocol.py",
+    "sha256": "ecf1f6fa9c09e587d5f618782fb87dd1b9dc87713c9ead08946431d24d3a5c60",
+    "lines": 94,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/__init__.py",
+    "sha256": "c02bcaa356f11e83a86948792e0f2664090d1cd03afed68301234bc473b711f8",
+    "lines": 26,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/decoder.py",
+    "sha256": "958833fa97019f25644e1a901ddbbe010d07ae733cad1de08508a847132564ab",
+    "lines": 100,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/dynamic_resizer.py",
+    "sha256": "a6e455a2592fa0110efca68bb025f427d60db79520dd201ac683b972f73dad29",
+    "lines": 101,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/resizer.py",
+    "sha256": "4882086a3e3119dbef814b08d96236d6b11f2a9823d43611f929382b009c7610",
+    "lines": 33,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/safety.py",
+    "sha256": "d33c173ebcf9f89730d6cf1c8f00f5394ebfadfaed53d25923a4db74d4a83a9f",
+    "lines": 72,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/image_processing/validator.py",
+    "sha256": "0e6d08d77a146106355b6c8c23ff3e45bbea87463fe71489c83bba8a724fd239",
+    "lines": 59,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/model_adapters/__init__.py",
+    "sha256": "e9566b4b428c63dd9c7dc3c3e3e94b4e3853ea60c2c3689deb712ac401b07a4b",
+    "lines": 13,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/model_adapters/base.py",
+    "sha256": "7671e7e549629a730eafec8f9bf8422171f1c334d792a9cef811827b514c0a9a",
+    "lines": 70,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/model_adapters/mock_adapter.py",
+    "sha256": "a881bead5e4fb075014bc9f043afd08973826e3dca29d6939ab61b0c43328753",
+    "lines": 111,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/model_adapters/qwen_vl.py",
+    "sha256": "3fd42b3c871d4f818024ac42af8d9bcd43dc2a28f02f18b4755a52a2c96ad89f",
+    "lines": 238,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/telemetry/__init__.py",
+    "sha256": "b9804f585ed97fe49220808ec0e9f1b698da11f2a5992de7bc227c18fccba7bb",
+    "lines": 18,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/telemetry/context.py",
+    "sha256": "3290f8e6f371a91050f516d2572237b64189657e96ad66f693f054b70dbc2e3d",
+    "lines": 20,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/telemetry/logging.py",
+    "sha256": "7ef5e2fdea735074fe52515f3ada22f303e841a30aba2c8ed020e3ed1f158706",
+    "lines": 50,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/telemetry/metrics.py",
+    "sha256": "b88cf77d20f5e30d3b89c92d8ae1d31dc3814e5b022a60ea6f1c1925925dbe3f",
+    "lines": 133,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/telemetry/timer.py",
+    "sha256": "c3378a2409132a796c32453cb337c596fddefd34d3d825b2cdcd6fcb938dea9c",
+    "lines": 38,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/__init__.py",
+    "sha256": "9dfb988294203f9797a361dab51d15dadeac1192bfe177ce2c45e9fb33e447a8",
+    "lines": 8,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/app.py",
+    "sha256": "52a507419bdf27fd75d9e3fdc07b08892779e5a14eaaec014166009cd61fc2af",
+    "lines": 147,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/executor.py",
+    "sha256": "09413fcbed2a2c2cd1ee6c7027c4ed1bc5960de95faeb985e465428160146830",
+    "lines": 179,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/manager.py",
+    "sha256": "7766427feb09cea47b059812a9d219978026c2ea26153d8d71014c2a6906cef5",
+    "lines": 96,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/remote_client.py",
+    "sha256": "9644557308c58e6fec96867247a707364d8fdeb45e2544b991ef2b3d06f39907",
+    "lines": 251,
+    "test_methods": 0
+  },
+  {
+    "path": "packages/worker_runtime/server.py",
+    "sha256": "b3c89c2f053b60fb292befccb111a2a1a716182dc994b90edf4e5998f786b4ea",
+    "lines": 50,
+    "test_methods": 0
+  },
+  {
+    "path": "client/__init__.py",
+    "sha256": "a576032a727979f12477aaf1663fc13791caa85ce2aae8418fc381f5d1ea0ac5",
+    "lines": 19,
+    "test_methods": 0
+  },
+  {
+    "path": "client/vlm_client.py",
+    "sha256": "a27889351b8f49b59ba7f9261cdda66ea5ae3db760dc1e9da1da657db5001c84",
+    "lines": 240,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/__init__.py",
+    "sha256": "33bc3eaddb49ba1ec2108f00a8032fb3f96b257575c487e2d858e0c2bbe02e15",
+    "lines": 3,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/ablation_runner.py",
+    "sha256": "3beada177e0e237ee48dbbf76ca38e2a7786e490d6be9d1d26c474b37b876696",
+    "lines": 422,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/datasets/__init__.py",
+    "sha256": "d21fb668437ebf6e453d9431dbc4b2f9adf400c945adc2158b8c9a257b998617",
+    "lines": 6,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/datasets/builder.py",
+    "sha256": "7b37bc1cc5cd6391bb62c7880d993a4ae24c8cb48e67ed316a2418bbe74537fe",
+    "lines": 183,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/datasets/manifest_schema.py",
+    "sha256": "d2eb8ef3827d46cd26e8c4add61d3af35534283070faa6f23cfe712460faa112",
+    "lines": 20,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/load_test_runner.py",
+    "sha256": "564c549095916b2dfeb61215f030b538860106845a5eb3bcf4ddceb1919b8e9a",
+    "lines": 236,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/pareto.py",
+    "sha256": "deb890d5d628dea048528f5882f545648eed323e978659d88a8b3940cd1f795a",
+    "lines": 144,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/performance/__init__.py",
+    "sha256": "15c9fdb835df2a3fbfcc0860cb7b243aeaa21006cdddf9a60965c9159a51d462",
+    "lines": 13,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/performance/benchmarker.py",
+    "sha256": "4ad2296e879b5e3e74c98d8ea0717f9a9cc44910b72050c57567ca63be227d43",
+    "lines": 93,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/qualitative/__init__.py",
+    "sha256": "a3be362f851c318f6dc04a59fbb413039bacba18f4bbe9aadd7c463e0925e7ec",
+    "lines": 11,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/qualitative/agreement.py",
+    "sha256": "a85cae3ba0e4f18b6a16f0ddde2ec2c4d89fe0aa373d25724d9041c3434e0a7c",
+    "lines": 43,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/qualitative/taxonomy.py",
+    "sha256": "09398c168709de4e000c4752c1b0a8c5ee68644fe4e46071fed85da0a0b843de",
+    "lines": 72,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/quality/__init__.py",
+    "sha256": "e9837c338e73b4aa6585c623f26c1c7b67d0be59ce8d595aea6dab65468f27da",
+    "lines": 25,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/quality/metrics.py",
+    "sha256": "ed6685596622d2b01ac66ef5390b5ca31641170997ed6abbb407913112eb0c17",
+    "lines": 172,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/quality/normalizer.py",
+    "sha256": "79503b8f68b5070e567ee39bccab40ede6610f51f8f49ef44d2dd0958c3ce0b7",
+    "lines": 109,
+    "test_methods": 0
+  },
+  {
+    "path": "evaluation/runner.py",
+    "sha256": "836748b55ea8d6923e664376bc8c23bda6e343c9722fa1295809f4bb279497b0",
+    "lines": 452,
+    "test_methods": 0
+  },
+  {
+    "path": "tests/__init__.py",
+    "sha256": "ff5ad51351c604b947699aca5028fa5792e280f19a9f1cbd33cb9d0d799b48e3",
+    "lines": 1,
+    "test_methods": 0
+  },
+  {
+    "path": "tests/fault_injection/__init__.py",
+    "sha256": "97e3adb6f817d2529ecdeabdeb2a1a6bfa5b526850edfe28d2a593de413cf457",
+    "lines": 1,
+    "test_methods": 0
+  },
+  {
+    "path": "tests/fault_injection/test_resilience.py",
+    "sha256": "aba6f7a65ce1888313ceca6e26ddebcc8c8ab5059a5712e1a141e718ae8bd929",
+    "lines": 278,
+    "test_methods": 5
+  },
+  {
+    "path": "tests/integration/__init__.py",
+    "sha256": "0e66a428dbf9a5667a8b91055baf8e4a7a1f1b257a915f101d83c74100284cb7",
+    "lines": 1,
+    "test_methods": 0
+  },
+  {
+    "path": "tests/integration/test_ablation_runner.py",
+    "sha256": "a9f4934527fe0f377a0d372783a67719639f33ea784721819d165c75a1025038",
+    "lines": 47,
+    "test_methods": 2
+  },
+  {
+    "path": "tests/integration/test_client_e2e.py",
+    "sha256": "86ad08f3b892f0209f63d0a46d6255be1e44a153f44fffd774c2bf13795da49a",
+    "lines": 71,
+    "test_methods": 4
+  },
+  {
+    "path": "tests/integration/test_evaluation_runner.py",
+    "sha256": "3b4a5333c4f67bba93164afbc95ea5db503c7203bf29903f913a0ed408ef854a",
+    "lines": 68,
+    "test_methods": 1
+  },
+  {
+    "path": "tests/integration/test_gateway_worker_e2e.py",
+    "sha256": "74020505baa17447298db73026dc37e954a309ab5363fd3357a9671bcbf50a89",
+    "lines": 283,
+    "test_methods": 3
+  },
+  {
+    "path": "tests/integration/test_load_and_slo.py",
+    "sha256": "d3ef0f655eb6d5227f51167fc6982062578c90c1d96b8024ba193353ebb5474e",
+    "lines": 115,
+    "test_methods": 1
+  },
+  {
+    "path": "tests/integration/test_worker_api.py",
+    "sha256": "9a8a85dbd40ec836dc4bbdba09c48f6a638762a36ab99e95572dedca9822c823",
+    "lines": 141,
+    "test_methods": 7
+  },
+  {
+    "path": "tests/unit/__init__.py",
+    "sha256": "0f6711356e3dd88bd6f5dcb8c25b7118228c1c8f4b6a1ff6ed441d9ce63e757b",
+    "lines": 1,
+    "test_methods": 0
+  },
+  {
+    "path": "tests/unit/test_architecture_fixes.py",
+    "sha256": "901ea2bbd49e016adcdc2a3c6b53fa85e2ced4cdc9a0498640fc5e94e08a9b02",
+    "lines": 193,
+    "test_methods": 8
+  },
+  {
+    "path": "tests/unit/test_caching.py",
+    "sha256": "f9ecf770fa2fec2b453d383b139764a9783329466893cd863a4c003d76f1859c",
+    "lines": 65,
+    "test_methods": 4
+  },
+  {
+    "path": "tests/unit/test_contracts.py",
+    "sha256": "01fd63a0aff57d56c0076d3505cc9f4375276fffea4120475747e6d1d4741144",
+    "lines": 113,
+    "test_methods": 6
+  },
+  {
+    "path": "tests/unit/test_dynamic_resizer.py",
+    "sha256": "1192939eef12a4e5df9c7ad0ba8ac3cd4a5ecc92712d9c26673be26b2ae76ea4",
+    "lines": 36,
+    "test_methods": 4
+  },
+  {
+    "path": "tests/unit/test_evaluation_performance.py",
+    "sha256": "cc293fac4d5ac31c406b4944d538a9c4c0594a89c539e80572448ff21087c4a5",
+    "lines": 38,
+    "test_methods": 2
+  },
+  {
+    "path": "tests/unit/test_evaluation_qualitative.py",
+    "sha256": "6689f4ae7568b26eb0c1179ca78e3f49b5b27b5bdab5fe0a5d2f235db09f6c16",
+    "lines": 38,
+    "test_methods": 2
+  },
+  {
+    "path": "tests/unit/test_evaluation_quality.py",
+    "sha256": "2dfe968ea11709c33194a2e930a3e554b58df28727d2afc48964a6e77bb14d2c",
+    "lines": 96,
+    "test_methods": 8
+  },
+  {
+    "path": "tests/unit/test_gateway_registry.py",
+    "sha256": "e1290ab09b2208255f04b023912024bfbb98716e6876db58379826d70012f790",
+    "lines": 91,
+    "test_methods": 5
+  },
+  {
+    "path": "tests/unit/test_image_processing.py",
+    "sha256": "66755f81a58b172c14cedb29eeda5fe383e7e8e9fe37976243a3397825ea72b0",
+    "lines": 104,
+    "test_methods": 9
+  },
+  {
+    "path": "tests/unit/test_metrics_exporter.py",
+    "sha256": "3f53c5ca843b16f97e1f75594b3784fbef182bb8a31d2cafd3c55809434d14aa",
+    "lines": 33,
+    "test_methods": 1
+  },
+  {
+    "path": "tests/unit/test_model_adapters.py",
+    "sha256": "2d569a75d34a36c3bf9ed0d5b5b297287155f02a731526bdc5db3311e2b5903e",
+    "lines": 70,
+    "test_methods": 3
+  },
+  {
+    "path": "tests/unit/test_scheduler.py",
+    "sha256": "0bdd00e67060386a7e8a12e569649014bb05e1705dd557cf49295d4040937f1e",
+    "lines": 89,
+    "test_methods": 4
+  },
+  {
+    "path": "tests/unit/test_telemetry.py",
+    "sha256": "00a0bb90b8ea59a25489d8dbd28bd8cde62ff03c401964154dc882b3ab6d6970",
+    "lines": 50,
+    "test_methods": 3
+  },
+  {
+    "path": "research/ocr_benchmark/benchmark_core.py",
+    "sha256": "773fdddd22576e101f6d406a7d8cb155b7c453940daa3fb645a1670c3d22cddc",
+    "lines": 372,
+    "test_methods": 0
+  },
+  {
+    "path": "research/ocr_benchmark/build_notebooks.py",
+    "sha256": "180d164aeea58b92e7b053dfefa849c4b8b0ef50e12efd7235dd5e316029a926",
+    "lines": 80,
+    "test_methods": 0
+  },
+  {
+    "path": "research/ocr_benchmark/compare.py",
+    "sha256": "b3cad8f2837949bc62fd8651c9835c6f619adb07d1e412b05aaf710a156322fc",
+    "lines": 235,
+    "test_methods": 0
+  },
+  {
+    "path": "research/ocr_benchmark/model_adapters.py",
+    "sha256": "1ad683997413465b55f822e08b3e8bdfa3e344aee8755e8abb97ac50eb321265",
+    "lines": 153,
+    "test_methods": 0
+  },
+  {
+    "path": "research/ocr_benchmark/tests/test_benchmark.py",
+    "sha256": "2cc0823b13ad7b5a2c05129b9515cd62d6f7b0f8615d1ae73f08db025120fba0",
+    "lines": 117,
+    "test_methods": 6
+  }
+]

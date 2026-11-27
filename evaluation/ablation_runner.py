@@ -47,15 +47,15 @@ class AblationRunner:
             self.dataset_path = Path(dataset_path)
         else:
             self.dataset_path = (
-                Path(__file__).resolve().parent / "datasets" / "benchmark_50_gold.jsonl"
+                Path(__file__).resolve().parent / "datasets" / "vietnamese_benchmark_50.jsonl"
             )
         self.reports_dir = Path(reports_dir)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
 
     def load_dataset(self) -> list[dict[str, Any]]:
-        """Load benchmark samples."""
+        """Load benchmark samples, raising FileNotFoundError if missing."""
         if not self.dataset_path.exists():
-            return []
+            raise FileNotFoundError(f"Required benchmark dataset not found at: {self.dataset_path}")
         samples = []
         with open(self.dataset_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -298,9 +298,14 @@ class AblationRunner:
         lines = [
             "# Báo cáo Nghiên cứu Tối ưu và Ablation (Phase 4)",
             "",
+            "> [!NOTE]",
+            "> **Loại bằng chứng (Evidence Kind): SIMULATED**",
+            "> Báo cáo này tổng hợp số liệu mô phỏng dựa trên mô hình toán học và kiểm thử cục bộ (DynamicResizer + MockAdapter). Không đại diện cho kết quả đo trực tiếp trên GPU thực tế (MEASURED_GPU).",
+            "",
             f"* **Ngày thực hiện:** {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}",
             "* **Phần cứng mục tiêu:** NVIDIA Tesla T4 (16GB VRAM, Compute Capability 7.5)",
             "* **Mô hình nghiên cứu:** Qwen3-VL-2B-Instruct / Qwen2-VL-2B-Instruct",
+            "* **Evidence Kind:** `SIMULATED`",
             "",
             "---",
             "",

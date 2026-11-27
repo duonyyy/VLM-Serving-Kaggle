@@ -12,21 +12,41 @@ class GatewayConfig(BaseModel):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     worker_auth_token: str = Field(
-        default=os.getenv("VLM_WORKER_AUTH_TOKEN", "vlm_worker_secret_2026"),
+        default_factory=lambda: os.getenv("VLM_WORKER_AUTH_TOKEN", "vlm_worker_secret_2026"),
         description="Shared secret required for workers to register",
     )
     client_api_key: str | None = Field(
-        default=os.getenv("VLM_CLIENT_API_KEY", None),
+        default_factory=lambda: os.getenv("VLM_CLIENT_API_KEY", None),
         description="Optional API key required from clients",
     )
-    queue_max_size: int = Field(default=100, description="Maximum concurrent pending jobs in queue")
-    job_timeout_sec: float = Field(default=60.0, description="Maximum wait time for worker inference")
-    heartbeat_timeout_sec: float = Field(default=20.0, description="TTL before worker is declared offline")
-    enable_cache: bool = Field(default=True, description="Enable response caching for identical requests")
-    cache_max_entries: int = Field(default=1000, description="Max entries stored in response cache")
-    cache_ttl_sec: float = Field(default=3600.0, description="TTL for cached responses in seconds")
-    scheduling_strategy: str = Field(default="least_loaded", description="Worker selection policy: least_loaded, round_robin, model_affinity")
-
+    queue_max_size: int = Field(
+        default_factory=lambda: int(os.getenv("VLM_QUEUE_MAX_SIZE", "100")),
+        description="Maximum concurrent pending jobs in queue",
+    )
+    job_timeout_sec: float = Field(
+        default_factory=lambda: float(os.getenv("VLM_JOB_TIMEOUT_SEC", "60.0")),
+        description="Maximum wait time for worker inference",
+    )
+    heartbeat_timeout_sec: float = Field(
+        default_factory=lambda: float(os.getenv("VLM_HEARTBEAT_TIMEOUT_SEC", "20.0")),
+        description="TTL before worker is declared offline",
+    )
+    enable_cache: bool = Field(
+        default_factory=lambda: os.getenv("VLM_ENABLE_CACHE", "true").lower() in ("true", "1", "yes"),
+        description="Enable response caching for identical requests",
+    )
+    cache_max_entries: int = Field(
+        default_factory=lambda: int(os.getenv("VLM_CACHE_MAX_ENTRIES", "1000")),
+        description="Max entries stored in response cache",
+    )
+    cache_ttl_sec: float = Field(
+        default_factory=lambda: float(os.getenv("VLM_CACHE_TTL_SEC", "3600.0")),
+        description="TTL for cached responses in seconds",
+    )
+    scheduling_strategy: str = Field(
+        default_factory=lambda: os.getenv("VLM_SCHEDULING_STRATEGY", "least_loaded"),
+        description="Worker selection policy: least_loaded, round_robin, model_affinity",
+    )
 
 
 default_config = GatewayConfig()

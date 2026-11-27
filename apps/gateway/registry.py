@@ -8,9 +8,10 @@ from typing import Any
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict, Field
 
-from packages.contracts.models import ModelCapabilities, ModelCard
+from packages.contracts.models import ModelCapabilities, ModelCard, matches_model_id
 from packages.contracts.protocol import WorkerHeartbeat, WorkerRegister
 from packages.telemetry.logging import get_logger
+from packages.telemetry.metrics import global_metrics
 
 logger = get_logger("gateway_registry")
 
@@ -30,6 +31,9 @@ class ConnectedWorker(BaseModel):
     status: str = "idle"  # idle, busy, unhealthy
     websocket: Any = None
     active_job_id: str | None = None
+    in_flight_jobs: int = 0
+    max_concurrency: int = 1
+    gpu_vram_allocated_bytes: int = 0
 
 
 class WorkerRegistry:
@@ -55,6 +59,11 @@ class WorkerRegistry:
             return False, "", "Authentication failed: invalid worker_auth_token"
 
         session_id = f"sess_{uuid.uuid4().hex[:12]}"
+        max_conc = (
+            max(1, int(getattr(reg.capabilities, "max_concurrency", 1)))
+            if reg.capabilities.supports_concurrency
+            else 1
+        )
         worker = ConnectedWorker(
             session_id=session_id,
             worker_id=reg.worker_id,
@@ -62,32 +71,49 @@ class WorkerRegistry:
             capabilities=reg.capabilities,
             device_info=reg.device_info,
             websocket=websocket,
+            max_concurrency=max_conc,
         )
         self.sessions[session_id] = worker
         logger.info(f"Worker '{reg.worker_id}' registered successfully (session: {session_id}, model: {reg.model_id})")
         return True, session_id, None
 
     def record_heartbeat(self, hb: WorkerHeartbeat) -> bool:
-        """Update last heartbeat timestamp for session."""
+        """Update last heartbeat timestamp and VRAM telemetry for session."""
         worker = self.sessions.get(hb.session_id)
         if not worker:
             return False
         worker.last_heartbeat = time.time()
         worker.status = hb.status
+        if hb.gpu_vram_allocated_bytes is not None:
+            worker.gpu_vram_allocated_bytes = hb.gpu_vram_allocated_bytes
+            global_metrics.set_gpu_vram(
+                sum(w.gpu_vram_allocated_bytes for w in self.sessions.values())
+            )
         return True
 
     def deregister(self, session_id: str) -> None:
         """Remove a disconnected worker."""
         if session_id in self.sessions:
             w = self.sessions.pop(session_id)
+            global_metrics.set_gpu_vram(
+                sum(worker.gpu_vram_allocated_bytes for worker in self.sessions.values())
+            )
             logger.info(f"Worker '{w.worker_id}' (session: {session_id}) deregistered")
 
     def get_available_worker(self, model_id: str | None = None) -> ConnectedWorker | None:
-        """Find an idle, healthy worker matching the requested model."""
+        """Find an eligible healthy worker matching the requested model."""
         self.prune_stale_workers()
         candidates = [
             w for w in self.sessions.values()
-            if w.status == "idle" and (model_id is None or w.model_id == model_id or model_id in w.model_id)
+            if (
+                w.status == "idle"
+                or (
+                    w.status == "busy"
+                    and w.capabilities.supports_concurrency
+                    and w.in_flight_jobs < w.max_concurrency
+                )
+            )
+            and (matches_model_id(model_id, w.model_id))
         ]
         return candidates[0] if candidates else None
 
