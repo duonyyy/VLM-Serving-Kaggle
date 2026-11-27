@@ -32,6 +32,13 @@ Mọi file xuất dưới `/kaggle/working/vietnamese_ocr` hoặc `/kaggle/worki
 | Smoke/full đúng checkpoint trên T4 | **NOT_EVALUATED** |
 | CER/WER/VRAM/latency | **NOT_EVALUATED** |
 
+### Rủi ro và giới hạn (Threats to Validity)
+- **Nhãn dữ liệu chưa xác thực:** CC-OCR `Vietnamese_150.tsv` cần kiểm tra schema và ngữ nghĩa trên Kaggle trước khi chấm điểm.
+- **Port FP16 cho DeepSeek:** DeepSeek hardcode BF16; bản port FP16 cho T4 cần ghi nhận sự sai lệch độ chính xác tiềm ẩn.
+- **Pipeline Paddle:** Gồm cả model layout và VLM, do đó so sánh là ở cấp độ hệ OCR hoàn chỉnh, không phải so sánh riêng lẻ vision encoder.
+- **Tài nguyên GPU:** Thời gian và VRAM phụ thuộc vào từng phiên chạy trên Kaggle; NVML đo toàn bộ GPU.
+- **Kết luận:** Chưa đủ bằng chứng để xếp hạng hai mô hình cho đến khi có báo cáo thực nghiệm đầy đủ từ Notebook 03.
+
 Paddle pipeline v1.6 dùng layout model cộng VLM; mã ghi commit của HF model card để tham chiếu nhưng pipeline Paddle có thể tải artifact qua registry khác. Chưa thể chứng minh hash trọng số đang chạy trùng byte với repository HF `PaddlePaddle/PaddleOCR-VL-1.6` cho đến khi kiểm tra trên Kaggle. Đây là cổng xác nhận trước khi tuyên bố so sánh chính xác hai checkpoint theo nghĩa byte-level.
 
 DeepSeek mã chính thức hardcode BF16 trong `infer()` và 8192 token. Notebook tải checkpoint theo commit SHA, thay năm vị trí BF16 thực thi (và một comment) bằng FP16 và hai lần giới hạn sinh bằng 2048; có hash trước/sau và dừng nếu source khác. Đây là bản port precision chưa được nhóm tác giả xác nhận; khác biệt độ chính xác cần được ghi trong báo cáo. Nó không thay model, weights, prompt hoặc preprocessing. `eager` attention có tên trong bảng dispatch của mã chính thức, nhưng cần xác nhận lúc load/smoke trên T4.

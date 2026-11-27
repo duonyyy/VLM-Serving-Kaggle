@@ -53,6 +53,18 @@ htmlcov/
 outputs/
 scratch/
 node_modules/
+*.zip
+*.tar.gz
+
+# Evaluation generated outputs
+evaluation/results/*
+!evaluation/results/.gitkeep
+evaluation/reports/*
+!evaluation/reports/.gitkeep
+
+# Staged bundle temporary artifacts
+vlm_phase0/kaggle_bundle/vlm_phase0/
+vlm_phase0/phase0_bundle.zip
 
 # Environment and sensitive files
 .env

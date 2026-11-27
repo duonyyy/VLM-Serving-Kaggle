@@ -104,6 +104,8 @@ def build() -> None:
         for path in sorted(bundle.rglob("*")):
             if path.is_file():
                 zip_file.write(path, path.relative_to(bundle))
+    # Clean up staged code directory inside bundle after packaging
+    shutil.rmtree(bundle / "vlm_phase0", ignore_errors=True)
     print(f"Built {len(manifest)} images: {counts}; ZIP: {archive} ({archive.stat().st_size} bytes)")
 
 

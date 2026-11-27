@@ -16,7 +16,7 @@ Thư mục này chứa dự án VLM Serving Platform (chuyển dịch từ thự
 | **2 — Gateway & Worker từ xa** | `apps/gateway/` (Control Plane, Worker Registry, Bounded Queue Dispatcher), `packages/worker_runtime/remote_client.py` (Outbound WebSocket Client, auto-reconnect), `notebooks/kaggle_worker_phase2.ipynb`, `infra/` (Docker & Cloudflare Tunnel), Fault-injection tests | **Hoàn thành (Implemented & Verified)** |
 | **3 — Đánh giá & Benchmark** | `evaluation/` (chỉ số CER/WER, Field F1, ANLS, p50/p95 latency, bộ 50 mẫu test, error taxonomy, reports & plots) | **Hoàn thành (Implemented & Verified)** |
 | **4 — Tối ưu & Ablation** | `packages/caching/` (SHA-256 LRU cache), `packages/image_processing/dynamic_resizer.py` (resolution scaling), `apps/gateway/scheduler.py` (LeastLoaded / RoundRobin), `evaluation/ablation_runner.py`, `evaluation/pareto.py`, `reports/ablation.md`, Pareto chart | **Hoàn thành (Implemented & Verified)** |
-| **5 — GPU Server Production** | Docker GPU worker (`infra/docker/Dockerfile.worker_gpu`), Docker Compose (`docker-compose.prod.yml`), Prometheus monitoring, Metrics Exporter (`/metrics`), Load Test & SLO verification (`reports/slo_report.md`), Production Deployment Runbook (`docs/deployment_runbook.md`), CI/CD workflow (`.github/workflows/ci.yml`) | **Hoàn thành (Implemented & Verified)** |
+| **5 — GPU Server Production** | Docker GPU worker (`infra/docker/Dockerfile.worker_gpu`), Docker Compose ([infra/docker/docker-compose.prod.yml](infra/docker/docker-compose.prod.yml)), Prometheus monitoring, Metrics Exporter (`/metrics`), Load Test & SLO verification (`reports/slo_report.md`), Production Deployment Runbook (`docs/deployment_runbook.md`), CI/CD workflow (`.github/workflows/ci.yml`) | **Hoàn thành (Implemented & Verified)** |
 
 
 
@@ -122,6 +122,20 @@ Mở notebook [notebooks/kaggle_worker_phase2.ipynb](notebooks/kaggle_worker_pha
 
 ---
 
+## Hướng dẫn sử dụng Phase 3 (Đánh giá & Benchmark)
+
+Chạy bộ benchmark tự động trên 50 mẫu test tiếng Việt với `MockAdapter` để kiểm thử logic:
+```powershell
+python -m evaluation.runner --adapter mock
+```
+Hoặc với mô hình VLM thực tế trên GPU:
+```powershell
+python -m evaluation.runner --adapter qwen --device cuda:0
+```
+Kết quả được xuất tự động vào `evaluation/results/` (JSONL, CSV, summary JSON) và báo cáo trực quan trong `evaluation/reports/` (Markdown report, latency/quality plots).
+
+---
+
 ## Hướng dẫn sử dụng Phase 4 (Tối ưu & Ablation Study)
 
 Chạy phân tích đa mục tiêu (Ablation 4 trục + Pareto Frontier Analysis):
@@ -161,23 +175,28 @@ Kết quả sinh ra báo cáo Markdown: [reports/slo_report.md](reports/slo_repo
 
 ## Chạy kiểm thử tự động (Unit, Integration & Fault Injection Tests)
 
-Chạy toàn bộ 72 test case (Phase 1, Phase 2, Phase 3, Phase 4, Phase 5):
+Chạy toàn bộ 86 test cases bằng `pytest`:
 ```powershell
-python -m unittest discover -s tests -v
+python -m pytest
 ```
 
-Bao gồm:
+Hoặc chạy từng suite bằng `unittest discover`:
+```powershell
+# Chạy 72 test cases nền tảng (Phase 1, 2, 3, 4, 5)
+python -m unittest discover -s tests -v
+
+# Chạy 14 test cases hồi quy Phase 0
+python -m unittest discover -s vlm_phase0/tests -v
+python -m unittest discover -s vlm_phase0/kaggle_vietnamese_ocr/tests -v
+```
+
+Phân bổ test cases:
 - **Phase 1 Contract, Processing, Adapter & Runtime Tests:** 32 tests
 - **Phase 2 Registry, Dispatcher, E2E WebSocket & Resilience Tests:** 12 tests
 - **Phase 3 Quality Metrics, Performance & Qualitative Tests:** 13 tests
 - **Phase 4 Caching, Dynamic Resizer, Scheduler & Ablation Tests:** 13 tests
 - **Phase 5 Metrics Exporter & Load Testing / SLO Integration Tests:** 2 tests
-
-Chạy kiểm thử hồi quy Phase 0 (14 test cases):
-```powershell
-python -m unittest discover -s vlm_phase0/tests -v
-python -m unittest discover -s vlm_phase0/kaggle_vietnamese_ocr/tests -v
-```
+- **Phase 0 Feasibility & Kaggle Vietnamese OCR Regression Tests:** 14 tests
 *(Tổng cộng: **86/86 tests passed 100%**)*
 
 
