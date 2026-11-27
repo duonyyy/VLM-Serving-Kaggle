@@ -11,7 +11,7 @@ Thư mục này chứa dự án VLM Serving Platform (chuyển dịch từ thự
 
 | Phase | Thành phần | Trạng thái |
 |---|---|---|
-| **0 — Feasibility** | `vlm_phase0/` (smoke test 20/20 không OOM trên Kaggle T4 với resize 1280px) | **Hoàn thành (Passed)** |
+| **0 — Feasibility & OCR Research** | Thực nghiệm khả thi ban đầu đã nghiệm thu và chuẩn hóa vào Phase 1; Nhánh nghiên cứu OCR tại `research/ocr_benchmark/` | **Hoàn thành (Passed & Archived)** |
 | **1 — Phục vụ 1 VLM** | `packages/contracts/`, `packages/image_processing/`, `packages/model_adapters/`, `packages/worker_runtime/`, `client/`, unit & integration tests | **Hoàn thành (Implemented & Verified)** |
 | **2 — Gateway & Worker từ xa** | `apps/gateway/` (Control Plane, Worker Registry, Bounded Queue Dispatcher), `packages/worker_runtime/remote_client.py` (Outbound WebSocket Client, auto-reconnect), `notebooks/kaggle_worker_phase2.ipynb`, `infra/` (Docker & Cloudflare Tunnel), Fault-injection tests | **Hoàn thành (Implemented & Verified)** |
 | **3 — Đánh giá & Benchmark** | `evaluation/` (chỉ số CER/WER, Field F1, ANLS, p50/p95 latency, bộ 50 mẫu test, error taxonomy, reports & plots) | **Hoàn thành (Implemented & Verified)** |
@@ -48,7 +48,8 @@ vlm-serving-platform/
 │   └── integration/           # Integration tests cho worker API, client E2E, benchmark runner
 ├── docs/
 │   └── api_contract.md        # Đặc tả chi tiết chuẩn API
-├── vlm_phase0/                # Kết quả và bundle của Phase 0
+├── research/
+│   └── ocr_benchmark/         # Nghiên cứu & đối chiếu OCR độc lập (PaddleOCR vs DeepSeek)
 ├── pyproject.toml             # Cấu hình dependency & package
 └── README.md
 ```
@@ -175,19 +176,18 @@ Kết quả sinh ra báo cáo Markdown: [reports/slo_report.md](reports/slo_repo
 
 ## Chạy kiểm thử tự động (Unit, Integration & Fault Injection Tests)
 
-Chạy toàn bộ 86 test cases bằng `pytest`:
+Chạy toàn bộ 78 test cases bằng `pytest`:
 ```powershell
 python -m pytest
 ```
 
 Hoặc chạy từng suite bằng `unittest discover`:
 ```powershell
-# Chạy 72 test cases nền tảng (Phase 1, 2, 3, 4, 5)
+# Chạy 72 test cases nền tảng phục vụ (Phase 1, 2, 3, 4, 5)
 python -m unittest discover -s tests -v
 
-# Chạy 14 test cases hồi quy Phase 0
-python -m unittest discover -s vlm_phase0/tests -v
-python -m unittest discover -s vlm_phase0/kaggle_vietnamese_ocr/tests -v
+# Chạy 6 test cases kiểm định OCR benchmark
+python -m unittest discover -s research/ocr_benchmark/tests -v
 ```
 
 Phân bổ test cases:
@@ -196,8 +196,8 @@ Phân bổ test cases:
 - **Phase 3 Quality Metrics, Performance & Qualitative Tests:** 13 tests
 - **Phase 4 Caching, Dynamic Resizer, Scheduler & Ablation Tests:** 13 tests
 - **Phase 5 Metrics Exporter & Load Testing / SLO Integration Tests:** 2 tests
-- **Phase 0 Feasibility & Kaggle Vietnamese OCR Regression Tests:** 14 tests
-*(Tổng cộng: **86/86 tests passed 100%**)*
+- **Research OCR Benchmark Regression Tests:** 6 tests
+*(Tổng cộng: **78/78 tests passed 100%**)*
 
 
 
