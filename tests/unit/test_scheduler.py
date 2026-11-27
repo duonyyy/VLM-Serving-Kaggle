@@ -58,6 +58,32 @@ class TestWorkerScheduler(unittest.TestCase):
         no_worker = scheduler.select_worker(self.workers, model_id="PaddleOCR-VL-1.6")
         self.assertIsNone(no_worker)
 
+    def test_concurrency_aware_least_loaded(self) -> None:
+        concurrent_workers = [
+            ConnectedWorker(
+                session_id="sc1",
+                worker_id="vllm_1",
+                model_id="Qwen/Qwen3-VL-2B-Instruct",
+                capabilities=ModelCapabilities(supports_concurrency=True, max_concurrency=4),
+                status="busy",
+                in_flight_jobs=3,
+                max_concurrency=4,
+            ),
+            ConnectedWorker(
+                session_id="sc2",
+                worker_id="vllm_2",
+                model_id="Qwen/Qwen3-VL-2B-Instruct",
+                capabilities=ModelCapabilities(supports_concurrency=True, max_concurrency=4),
+                status="busy",
+                in_flight_jobs=1,
+                max_concurrency=4,
+            ),
+        ]
+        scheduler = WorkerScheduler(SchedulingStrategy.LEAST_LOADED)
+        chosen = scheduler.select_worker(concurrent_workers)
+        self.assertIsNotNone(chosen)
+        self.assertEqual(chosen.worker_id, "vllm_2")
+
 
 if __name__ == "__main__":
     unittest.main()

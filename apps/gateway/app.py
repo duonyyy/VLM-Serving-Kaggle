@@ -97,9 +97,10 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
         response.headers["x-gateway-latency-ms"] = f"{duration_ms:.2f}"
 
         # Record metrics
+        model_label = getattr(request.state, "model", "default")
         global_metrics.record_request(
             endpoint=request.url.path,
-            model="default",
+            model=model_label,
             status_code=response.status_code,
             duration_sec=duration_sec,
         )
@@ -135,7 +136,6 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, Any]:
         """Gateway health check and worker cluster status."""
-
         active_workers = registry.active_worker_count
         return {
             "status": "healthy" if active_workers > 0 else "degraded",
@@ -143,6 +143,25 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
             "pending_jobs": dispatcher.pending_count,
             "timestamp": time.time(),
         }
+
+    @app.get("/health/live")
+    async def liveness() -> dict[str, Any]:
+        """Liveness probe confirming Gateway process responsiveness."""
+        return {"status": "alive", "timestamp": time.time()}
+
+    @app.get("/health/ready")
+    async def readiness() -> Response:
+        """Readiness probe returning 503 until at least one worker is connected."""
+        active_workers = registry.active_worker_count
+        if active_workers == 0:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "not_ready", "active_workers": 0, "timestamp": time.time()},
+            )
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ready", "active_workers": active_workers, "timestamp": time.time()},
+        )
 
     @app.get("/v1/models", dependencies=[Depends(verify_client_api_key)])
     async def list_models() -> ModelListResponse:
@@ -153,7 +172,7 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
     @app.get("/v1/cache/stats", dependencies=[Depends(verify_client_api_key)])
     async def cache_stats() -> dict[str, Any]:
         """Return cache hit/miss statistics and memory footprint."""
-        if not dispatcher.cache:
+        if dispatcher.cache is None:
             return {"enabled": False}
         stats = dispatcher.cache.stats
         return {
@@ -169,23 +188,27 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
     @app.post("/v1/cache/clear", dependencies=[Depends(verify_client_api_key)])
     async def clear_cache() -> dict[str, str]:
         """Manually flush the inference response cache."""
-        if dispatcher.cache:
+        if dispatcher.cache is not None:
             dispatcher.cache.clear()
             return {"status": "cleared"}
         return {"status": "cache_disabled"}
 
 
 
-    @app.post("/v1/chat/completions", dependencies=[Depends(verify_client_api_key)])
-    async def chat_completions(req: ChatCompletionRequest) -> Any:
-        """OpenAI-compatible chat completions endpoint routed to a remote worker."""
+    async def _dispatch_with_error_handling(
+        request: Request,
+        endpoint: str,
+        payload: dict[str, Any],
+        model_id: str | None,
+    ) -> JSONResponse:
         request_id = get_request_id() or f"req_{uuid.uuid4().hex[:12]}"
+        request.state.model = model_id or "default"
         try:
             result = await dispatcher.dispatch_job(
-                endpoint="/v1/chat/completions",
-                payload=req.model_dump(exclude_none=True),
+                endpoint=endpoint,
+                payload=payload,
                 request_id=request_id,
-                model_id=req.model,
+                model_id=model_id,
                 timeout_sec=cfg.job_timeout_sec,
             )
             return JSONResponse(status_code=200, content=result)
@@ -222,51 +245,25 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
                 ).model_dump(),
             )
 
+    @app.post("/v1/chat/completions", dependencies=[Depends(verify_client_api_key)])
+    async def chat_completions(request: Request, req: ChatCompletionRequest) -> Any:
+        """OpenAI-compatible chat completions endpoint routed to a remote worker."""
+        return await _dispatch_with_error_handling(
+            request=request,
+            endpoint="/v1/chat/completions",
+            payload=req.model_dump(exclude_none=True),
+            model_id=req.model,
+        )
+
     @app.post("/v1/extract", dependencies=[Depends(verify_client_api_key)])
-    async def extract(req: ExtractionRequest) -> Any:
+    async def extract(request: Request, req: ExtractionRequest) -> Any:
         """Document information extraction endpoint routed to a remote worker."""
-        request_id = get_request_id() or f"req_{uuid.uuid4().hex[:12]}"
-        try:
-            result = await dispatcher.dispatch_job(
-                endpoint="/v1/extract",
-                payload=req.model_dump(exclude_none=True),
-                request_id=request_id,
-                model_id=req.model,
-                timeout_sec=cfg.job_timeout_sec,
-            )
-            return JSONResponse(status_code=200, content=result)
-        except NoWorkerAvailableError as exc:
-            return JSONResponse(
-                status_code=503,
-                content=ErrorResponse(
-                    error=ErrorDetail(message=str(exc), type="ServiceUnavailableError", code="no_workers_available"),
-                    request_id=request_id,
-                ).model_dump(),
-            )
-        except QueueFullError as exc:
-            return JSONResponse(
-                status_code=429,
-                content=ErrorResponse(
-                    error=ErrorDetail(message=str(exc), type="RateLimitError", code="gateway_queue_full"),
-                    request_id=request_id,
-                ).model_dump(),
-            )
-        except JobTimeoutError as exc:
-            return JSONResponse(
-                status_code=504,
-                content=ErrorResponse(
-                    error=ErrorDetail(message=str(exc), type="TimeoutError", code="worker_timeout"),
-                    request_id=request_id,
-                ).model_dump(),
-            )
-        except RemoteWorkerExecutionError as exc:
-            return JSONResponse(
-                status_code=500,
-                content=ErrorResponse(
-                    error=ErrorDetail(message=str(exc), type="InternalServerError", code="remote_worker_error"),
-                    request_id=request_id,
-                ).model_dump(),
-            )
+        return await _dispatch_with_error_handling(
+            request=request,
+            endpoint="/v1/extract",
+            payload=req.model_dump(exclude_none=True),
+            model_id=req.model,
+        )
 
 
     @app.websocket("/workers/connect")
@@ -315,12 +312,21 @@ def create_gateway_app(config: GatewayConfig | None = None) -> FastAPI:
 
                 if msg_type == "heartbeat":
                     hb = WorkerHeartbeat.model_validate(msg_data)
-                    registry.record_heartbeat(hb)
-                    await websocket.send_text(GatewayHeartbeatAck().model_dump_json())
+                    if hb.session_id != session_id:
+                        logger.warning(
+                            f"Rejecting heartbeat with mismatched session_id '{hb.session_id}' on socket '{session_id}'"
+                        )
+                    else:
+                        registry.record_heartbeat(hb)
+                        await websocket.send_text(GatewayHeartbeatAck().model_dump_json())
 
                 elif msg_type == "job_result":
                     res = WorkerJobResult.model_validate(msg_data)
-                    dispatcher.resolve_job(res)
+                    resolved = dispatcher.resolve_job(res, sender_session_id=session_id)
+                    if not resolved:
+                        logger.warning(
+                            f"Result for job '{res.job_id}' from session '{session_id}' was rejected or not pending"
+                        )
 
                 else:
                     logger.warning(f"Unrecognized message type '{msg_type}' from session '{session_id}'")

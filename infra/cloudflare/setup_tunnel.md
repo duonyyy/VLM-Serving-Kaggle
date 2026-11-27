@@ -58,10 +58,10 @@ cloudflared tunnel route dns vlm-gateway vlm.yourdomain.com
 ```
 
 ### Bước 4: Tạo file cấu hình `config.yml`
-Tham khảo [tunnel_config.example.yml](file:///c:/Users/Admin/Desktop/ExcelMCP/SE373%20-%20AGENTIC%20AI/vlm-serving-platform/infra/cloudflare/tunnel_config.example.yml):
+Tham khảo [tunnel_config.example.yml](./tunnel_config.example.yml):
 ```yaml
 tunnel: YOUR_TUNNEL_UUID
-credentials-file: /path/to/credentials.json
+credentials-file: ~/.cloudflared/YOUR_TUNNEL_UUID.json
 
 ingress:
   - hostname: vlm.yourdomain.com

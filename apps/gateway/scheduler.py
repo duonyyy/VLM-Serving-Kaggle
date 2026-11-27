@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Sequence
 
 from apps.gateway.registry import ConnectedWorker
+from packages.contracts.models import matches_model_id
 from packages.telemetry.logging import get_logger
 
 logger = get_logger("gateway_scheduler")
@@ -36,10 +37,18 @@ class WorkerScheduler:
         if not workers:
             return None
 
-        # Filter candidates matching requested model and idle status
+        # Filter candidates matching requested model and available capacity
         candidates = [
             w for w in workers
-            if w.status == "idle" and (model_id is None or w.model_id == model_id or model_id in w.model_id)
+            if (
+                w.status == "idle"
+                or (
+                    w.status == "busy"
+                    and w.capabilities.supports_concurrency
+                    and w.in_flight_jobs < w.max_concurrency
+                )
+            )
+            and (matches_model_id(model_id, w.model_id))
         ]
 
         if not candidates:
@@ -53,9 +62,10 @@ class WorkerScheduler:
             return self._select_least_loaded(candidates)
 
     def _select_least_loaded(self, candidates: list[ConnectedWorker]) -> ConnectedWorker:
-        """Pick worker that has been idle longest (most refreshed) or least active."""
-        # Sort by last_heartbeat ascending or connected_at to distribute wear evenly
-        candidates.sort(key=lambda w: w.last_heartbeat)
+        """Pick worker with lowest in-flight utilization, breaking ties by oldest heartbeat."""
+        candidates.sort(
+            key=lambda w: (w.in_flight_jobs / max(1, w.max_concurrency), w.in_flight_jobs, w.last_heartbeat)
+        )
         chosen = candidates[0]
         logger.debug(f"[LeastLoaded] Selected worker '{chosen.worker_id}' (session: {chosen.session_id})")
         return chosen
@@ -70,7 +80,7 @@ class WorkerScheduler:
     def _select_model_affinity(self, candidates: list[ConnectedWorker], model_id: str | None) -> ConnectedWorker:
         """Prioritize exact model string match before partial substring."""
         if model_id:
-            exact_matches = [w for w in candidates if w.model_id == model_id]
+            exact_matches = [w for w in candidates if matches_model_id(model_id, w.model_id)]
             if exact_matches:
                 return exact_matches[0]
         return candidates[0]

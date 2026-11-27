@@ -23,6 +23,8 @@ from packages.contracts.protocol import (
 )
 from packages.model_adapters.base import BaseModelAdapter
 from packages.telemetry.logging import get_logger
+from packages.telemetry.timer import get_gpu_memory_stats
+from .executor import execute_chat_completion, execute_extraction
 
 logger = get_logger("remote_worker_client")
 
@@ -68,6 +70,7 @@ class RemoteWorkerClient:
         self.session_id: str | None = None
         self._execution_lock = asyncio.Lock()
         self._stop_event = asyncio.Event()
+        self._active_tasks: dict[str, asyncio.Task[Any]] = {}
 
     def stop(self) -> None:
         """Signal client to terminate cleanly."""
@@ -100,13 +103,13 @@ class RemoteWorkerClient:
 
     async def _connect_and_serve(self) -> None:
         """Connect WebSocket, complete handshake, and run heartbeat + dispatch tasks."""
-        async with websockets.connect(self.gateway_ws_url) as ws:
+        async with websockets.connect(self.gateway_ws_url, max_size=32 * 1024 * 1024) as ws:
             # 1. Handshake
             reg_msg = WorkerRegister(
                 worker_id=self.worker_id,
                 model_id=self.adapter.model_id,
                 token=self.auth_token,
-                capabilities=self.adapter.get_capabilities(),
+                capabilities=self.adapter.capabilities,
                 device_info=get_gpu_info(),
             )
             await ws.send(reg_msg.model_dump_json())
@@ -148,10 +151,12 @@ class RemoteWorkerClient:
         while not self._stop_event.is_set():
             await asyncio.sleep(interval_sec)
             status = "busy" if self._execution_lock.locked() else "idle"
+            gpu_stats = get_gpu_memory_stats()
             hb = WorkerHeartbeat(
                 worker_id=self.worker_id,
                 session_id=self.session_id or "",
                 status=status,
+                gpu_vram_allocated_bytes=gpu_stats.get("allocated_bytes") if gpu_stats else None,
             )
             await ws.send(hb.model_dump_json())
 
@@ -168,58 +173,79 @@ class RemoteWorkerClient:
             if msg_type == "job_dispatch":
                 dispatch = GatewayJobDispatch.model_validate(data)
                 # Execute inference under single-concurrency lock to protect GPU VRAM
-                asyncio.create_task(self._execute_and_respond(ws, dispatch))
+                task = asyncio.create_task(self._execute_and_respond(ws, dispatch))
+                self._active_tasks[dispatch.job_id] = task
+                task.add_done_callback(lambda t, jid=dispatch.job_id: self._active_tasks.pop(jid, None))
 
             elif msg_type == "job_cancel":
-                logger.info(f"Received job cancellation: {data.get('job_id')}")
+                job_id = data.get("job_id")
+                logger.info(f"Received job cancellation: {job_id}")
+                if job_id and job_id in self._active_tasks:
+                    task = self._active_tasks[job_id]
+                    if not task.done():
+                        task.cancel()
+                        logger.info(f"Cancelled running task for job '{job_id}'")
 
     async def _execute_and_respond(self, ws: Any, dispatch: GatewayJobDispatch) -> None:
         """Execute inference on the adapter and send WorkerJobResult back."""
-        async with self._execution_lock:
-            logger.info(f"Executing job '{dispatch.job_id}' for endpoint '{dispatch.endpoint}'")
-            start_t = time.time()
-            try:
-                if dispatch.endpoint == "/v1/chat/completions":
-                    req = ChatCompletionRequest.model_validate(dispatch.payload)
-                    loop = asyncio.get_running_loop()
-                    # Run sync adapter.infer in thread pool to avoid blocking the asyncio event loop
-                    resp: ChatCompletionResponse = await loop.run_in_executor(
-                        None, lambda: self.adapter.infer(req)
-                    )
+        try:
+            async with self._execution_lock:
+                logger.info(f"Executing job '{dispatch.job_id}' for endpoint '{dispatch.endpoint}'")
+                try:
+                    if dispatch.endpoint == "/v1/chat/completions":
+                        req = ChatCompletionRequest.model_validate(dispatch.payload)
+                        resp: ChatCompletionResponse = await asyncio.to_thread(
+                            execute_chat_completion, self.adapter, req
+                        )
+                        job_result = WorkerJobResult(
+                            job_id=dispatch.job_id,
+                            request_id=dispatch.request_id,
+                            status="completed",
+                            result=resp.model_dump(),
+                            timing=resp.timing,
+                        )
+                    elif dispatch.endpoint == "/v1/extract":
+                        req_extract = ExtractionRequest.model_validate(dispatch.payload)
+                        resp_extract: ExtractionResponse = await asyncio.to_thread(
+                            execute_extraction, self.adapter, req_extract, dispatch.request_id
+                        )
+                        job_result = WorkerJobResult(
+                            job_id=dispatch.job_id,
+                            request_id=dispatch.request_id,
+                            status="completed",
+                            result=resp_extract.model_dump(),
+                            timing=resp_extract.timing,
+                        )
+                    else:
+                        raise ValueError(f"Unsupported endpoint: {dispatch.endpoint}")
+
+                except asyncio.CancelledError:
+                    logger.warning(f"Job '{dispatch.job_id}' cancelled during execution")
                     job_result = WorkerJobResult(
                         job_id=dispatch.job_id,
                         request_id=dispatch.request_id,
-                        status="completed",
-                        result=resp.model_dump(),
-                        timing=resp.timing,
+                        status="failed",
+                        error="Execution cancelled by Gateway",
                     )
-                elif dispatch.endpoint == "/v1/extract":
-                    req_extract = ExtractionRequest.model_validate(dispatch.payload)
-                    loop = asyncio.get_running_loop()
-                    resp_extract: ExtractionResponse = await loop.run_in_executor(
-                        None, lambda: self.adapter.extract(req_extract)
-                    )
+                    try:
+                        await ws.send(job_result.model_dump_json())
+                    except Exception:
+                        pass
+                    raise
+
+                except Exception as exc:
+                    logger.error(f"Error executing job '{dispatch.job_id}': {exc}")
                     job_result = WorkerJobResult(
                         job_id=dispatch.job_id,
                         request_id=dispatch.request_id,
-                        status="completed",
-                        result=resp_extract.model_dump(),
-                        timing=resp_extract.timing,
+                        status="failed",
+                        error=str(exc),
                     )
-                else:
-                    raise ValueError(f"Unsupported endpoint: {dispatch.endpoint}")
 
-            except Exception as exc:
-                logger.error(f"Error executing job '{dispatch.job_id}': {exc}")
-                job_result = WorkerJobResult(
-                    job_id=dispatch.job_id,
-                    request_id=dispatch.request_id,
-                    status="failed",
-                    error=str(exc),
-                )
-
-            # Send result back over WebSocket
-            try:
-                await ws.send(job_result.model_dump_json())
-            except Exception as exc:
-                logger.error(f"Failed to return result for '{dispatch.job_id}': {exc}")
+                # Send result back over WebSocket
+                try:
+                    await ws.send(job_result.model_dump_json())
+                except Exception as exc:
+                    logger.error(f"Failed to return result for '{dispatch.job_id}': {exc}")
+        finally:
+            self._active_tasks.pop(dispatch.job_id, None)

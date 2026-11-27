@@ -19,7 +19,7 @@ from packages.contracts.chat import (
     TextContentPart,
 )
 from packages.contracts.extraction import ExtractionRequest, ExtractionResponse
-from packages.contracts.models import HealthResponse, ModelCard, ModelListResponse
+from packages.contracts.models import GatewayHealthResponse, HealthResponse, ModelCard, ModelListResponse
 
 
 class VLMClientError(Exception):
@@ -123,10 +123,18 @@ class VLMClient:
             self._handle_error_response(resp)
         return resp
 
-    def get_health(self) -> HealthResponse:
-        """Check worker health and status."""
+    def get_health(self) -> HealthResponse | GatewayHealthResponse:
+        """Check worker or gateway health and status."""
         resp = self._request("GET", "/health")
-        return HealthResponse.model_validate(resp.json())
+        data = resp.json()
+        if "active_workers" in data:
+            return GatewayHealthResponse.model_validate(data)
+        return HealthResponse.model_validate(data)
+
+    def get_gateway_health(self) -> GatewayHealthResponse:
+        """Check gateway health and status."""
+        resp = self._request("GET", "/health")
+        return GatewayHealthResponse.model_validate(resp.json())
 
     def list_models(self) -> list[ModelCard]:
         """List available models on this worker/gateway."""

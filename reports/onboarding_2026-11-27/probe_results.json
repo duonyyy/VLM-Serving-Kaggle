@@ -1,0 +1,50 @@
+{
+  "timestamp_utc": "2026-11-27T15:05:14.347541+00:00",
+  "scope": "CPU/mock/ASGI diagnostics; not GPU performance",
+  "cache_message_boundary_collision": false,
+  "cache_ignores_extra_params": false,
+  "empty_invoice_parse": [
+    {
+      "seller_name": null,
+      "invoice_number": null,
+      "invoice_date": null,
+      "subtotal": null,
+      "tax_amount": null,
+      "total_amount": null,
+      "currency": "VND",
+      "items": []
+    },
+    "partial"
+  ],
+  "worker_stream_wrong_model": {
+    "status": 404,
+    "content_type": "application/json",
+    "returned_model": null
+  },
+  "result_accepts_without_session_check": false,
+  "websocket_connect_default_max_size": 1048576,
+  "documented_short_alias_matches": true,
+  "cli_environment_probe": {
+    "client_auth_enabled": true,
+    "worker_uses_environment_token": true
+  },
+  "versions": {
+    "torch": "2.12.0",
+    "transformers": "5.10.2",
+    "fastapi": "0.140.0",
+    "pydantic": "2.13.5",
+    "websockets": "16.1.1",
+    "httpx": "0.28.1",
+    "pytest": "9.1.1"
+  },
+  "torch_cuda": {
+    "available": false,
+    "runtime": null,
+    "device_count": 0
+  },
+  "physical_gpu": "NVIDIA GeForce RTX 3050 Laptop GPU, 4096 MiB, 591.74",
+  "git_head": "8d7a0532420a9ebfa75cc54fb0295e7a7a97c904",
+  "branch": "cleanup/repo-consolidation",
+  "inventory_python_files": 85,
+  "inventory_test_methods": 88
+}

@@ -11,6 +11,7 @@ from typing import Any
 from packages.caching.cache import InferenceCache
 from packages.contracts.protocol import GatewayJobCancel, GatewayJobDispatch, WorkerJobResult
 from packages.telemetry.logging import get_logger
+from packages.telemetry.metrics import global_metrics
 from .registry import ConnectedWorker, WorkerRegistry
 from .scheduler import SchedulingStrategy, WorkerScheduler
 
@@ -54,6 +55,8 @@ class JobDispatcher:
         self._pending_jobs: dict[str, asyncio.Future[WorkerJobResult]] = {}
         # job_id -> session_id
         self._job_worker_map: dict[str, str] = {}
+        # job_id -> request_id
+        self._job_request_map: dict[str, str] = {}
         # Concurrency / Queue lock
         self._lock = asyncio.Lock()
 
@@ -62,45 +65,68 @@ class JobDispatcher:
         return len(self._pending_jobs)
 
     def _extract_cache_key(self, endpoint: str, payload: dict[str, Any], model_id: str | None) -> str | None:
-        """Construct cache key if payload contains identifiable image and prompt."""
-        if not self.cache:
+        """Construct deterministic cache key preserving message boundaries, roles, and extra params."""
+        if self.cache is None:
             return None
 
-        prompt = ""
-        img_data = ""
+        # Non-deterministic sampling or streaming bypasses cache
+        if payload.get("stream", False):
+            return None
+        if payload.get("temperature", 0.0) != 0.0:
+            return None
+
         model = model_id or payload.get("model") or "unknown"
+        extra: dict[str, Any] = {
+            "temp": payload.get("temperature", 0.0),
+            "max_tokens": payload.get("max_tokens"),
+        }
+        if payload.get("extra_params"):
+            extra["extra_params"] = payload["extra_params"]
+
+        img_parts: list[str] = []
+        prompt_repr = ""
 
         if endpoint == "/v1/chat/completions":
             messages = payload.get("messages") or []
-            texts = []
+            # Preserve message boundaries and roles canonically
+            canonical_messages = []
             for msg in messages:
-                content = msg.get("content")
+                role = msg.get("role", "")
+                content = msg.get("content", "")
                 if isinstance(content, str):
-                    texts.append(content)
+                    canonical_messages.append({"role": role, "content": content})
                 elif isinstance(content, list):
+                    parts = []
                     for part in content:
                         if isinstance(part, dict):
                             if part.get("type") == "text":
-                                texts.append(part.get("text", ""))
+                                parts.append({"type": "text", "text": part.get("text", "")})
                             elif part.get("type") == "image_url":
                                 img_info = part.get("image_url", {})
-                                if isinstance(img_info, dict):
-                                    img_data = img_info.get("url", "")
-            prompt = " ".join(texts)
+                                url = img_info.get("url", "") if isinstance(img_info, dict) else ""
+                                parts.append({"type": "image_url", "url": url})
+                                if url:
+                                    img_parts.append(url)
+                    canonical_messages.append({"role": role, "content": parts})
+            prompt_repr = json.dumps(canonical_messages, sort_keys=True, ensure_ascii=False)
 
         elif endpoint == "/v1/extract":
             prompt = payload.get("prompt") or payload.get("schema_name") or "extract"
-            img_data = payload.get("image_url") or ""
+            if payload.get("image_url"):
+                img_parts.append(str(payload["image_url"]))
+            extra["schema_name"] = payload.get("schema_name")
+            extra["fields"] = payload.get("fields")
+            prompt_repr = prompt
 
-        if not img_data and not prompt:
+        if not img_parts and not prompt_repr:
             return None
 
         return InferenceCache.generate_key(
             endpoint=endpoint,
             model=model,
-            prompt=prompt,
-            image_bytes_or_url=img_data,
-            extra_params={"temp": payload.get("temperature", 0.0), "max_tokens": payload.get("max_tokens")},
+            prompt=prompt_repr,
+            image_bytes_or_url="|".join(img_parts),
+            extra_params=extra,
         )
 
     async def dispatch_job(
@@ -115,50 +141,64 @@ class JobDispatcher:
         """Dispatch a job to an available remote worker or return cached result."""
         # 1. Check Inference Cache
         cache_key = self._extract_cache_key(endpoint, payload, model_id)
-        if cache_key and self.cache:
+        if cache_key and self.cache is not None:
             cached_result = self.cache.get(cache_key)
+            global_metrics.record_cache(hit=cached_result is not None)
             if cached_result is not None:
                 logger.info(f"Cache HIT for request '{request_id}' (key: {cache_key[:12]}...)")
-                cached_result["cached"] = True
-                return cached_result
+                fresh_result = json.loads(json.dumps(cached_result))
+                if endpoint == "/v1/chat/completions":
+                    fresh_result["id"] = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+                    fresh_result["created"] = int(time.time())
+                elif endpoint == "/v1/extract":
+                    fresh_result["request_id"] = request_id
+
+                fresh_result["timing"] = {
+                    "preprocessing_ms": 0.0,
+                    "inference_ms": 0.0,
+                    "total_ms": 0.5,
+                }
+                fresh_result["cached"] = True
+                return fresh_result
 
         timeout = timeout_sec or self.default_timeout_sec
-
-        async with self._lock:
-            if len(self._pending_jobs) >= self.max_queue_size:
-                logger.warning(f"Queue full ({len(self._pending_jobs)}/{self.max_queue_size}), rejecting {request_id}")
-                raise QueueFullError("Gateway queue is full. Please try again later.")
-
-        # 2. Acquire Worker using Scheduler policy
-        worker = await self._acquire_worker(model_id=model_id, timeout_sec=wait_for_worker_sec)
-        if not worker:
-            logger.error(f"No worker available for model '{model_id}' (request: {request_id})")
-            raise NoWorkerAvailableError(f"No available remote worker serving model '{model_id or 'any'}'")
-
         job_id = f"job_{uuid.uuid4().hex[:12]}"
         loop = asyncio.get_running_loop()
         future: asyncio.Future[WorkerJobResult] = loop.create_future()
 
-        self._pending_jobs[job_id] = future
-        self._job_worker_map[job_id] = worker.session_id
+        # Atomically check capacity and reserve queue slot before acquiring a worker
+        async with self._lock:
+            if len(self._pending_jobs) >= self.max_queue_size:
+                logger.warning(f"Queue full ({len(self._pending_jobs)}/{self.max_queue_size}), rejecting {request_id}")
+                raise QueueFullError("Gateway queue is full. Please try again later.")
+            self._pending_jobs[job_id] = future
 
-        # Mark worker busy
-        worker.status = "busy"
-        worker.active_job_id = job_id
-
-        dispatch_msg = GatewayJobDispatch(
-            job_id=job_id,
-            request_id=request_id,
-            endpoint=endpoint,
-            payload=payload,
-            timeout_sec=timeout,
-        )
-
-        logger.info(
-            f"Dispatching job '{job_id}' to worker '{worker.worker_id}' (session: {worker.session_id}, endpoint: {endpoint})"
-        )
-
+        worker: ConnectedWorker | None = None
         try:
+            # 2. Acquire Worker using Scheduler policy
+            worker = await self._acquire_worker(model_id=model_id, timeout_sec=wait_for_worker_sec)
+            if not worker:
+                logger.error(f"No worker available for model '{model_id}' (request: {request_id})")
+                raise NoWorkerAvailableError(f"No available remote worker serving model '{model_id or 'any'}'")
+
+            self._job_worker_map[job_id] = worker.session_id
+            self._job_request_map[job_id] = request_id
+            worker.in_flight_jobs += 1
+            worker.status = "busy"
+            worker.active_job_id = job_id
+
+            dispatch_msg = GatewayJobDispatch(
+                job_id=job_id,
+                request_id=request_id,
+                endpoint=endpoint,
+                payload=payload,
+                timeout_sec=timeout,
+            )
+
+            logger.info(
+                f"Dispatching job '{job_id}' to worker '{worker.worker_id}' (session: {worker.session_id}, endpoint: {endpoint})"
+            )
+
             # Send dispatch message over WebSocket
             await worker.websocket.send_text(dispatch_msg.model_dump_json())
             logger.info(f"Successfully sent dispatch to worker '{worker.worker_id}'")
@@ -172,18 +212,19 @@ class JobDispatcher:
             res_data = job_result.result or {}
 
             # Populate cache if successful
-            if cache_key and self.cache:
+            if cache_key and self.cache is not None:
                 self.cache.set(cache_key, res_data)
 
             return res_data
 
         except asyncio.TimeoutError:
-            logger.error(f"Job '{job_id}' timed out after {timeout}s on worker '{worker.worker_id}'")
-            try:
-                cancel_msg = GatewayJobCancel(job_id=job_id, reason="Gateway timeout exceeded")
-                await worker.websocket.send_text(cancel_msg.model_dump_json())
-            except Exception:
-                pass
+            logger.error(f"Job '{job_id}' timed out after {timeout}s on worker '{worker.worker_id if worker else 'unknown'}'")
+            if worker is not None:
+                try:
+                    cancel_msg = GatewayJobCancel(job_id=job_id, reason="Gateway timeout exceeded")
+                    await worker.websocket.send_text(cancel_msg.model_dump_json())
+                except Exception:
+                    pass
             raise JobTimeoutError(f"Worker did not respond within {timeout} seconds")
 
         finally:
@@ -218,11 +259,27 @@ class JobDispatcher:
 
             await asyncio.sleep(0.05)
 
-    def resolve_job(self, result: WorkerJobResult) -> bool:
-        """Resolve a pending job future when a WorkerJobResult arrives."""
+    def resolve_job(self, result: WorkerJobResult, sender_session_id: str | None = None) -> bool:
+        """Resolve a pending job future when a WorkerJobResult arrives with session and request verification."""
         future = self._pending_jobs.get(result.job_id)
         if not future or future.done():
             logger.warning(f"Received result for unknown or already completed job: {result.job_id}")
+            return False
+
+        expected_session = self._job_worker_map.get(result.job_id)
+        if expected_session and sender_session_id != expected_session:
+            logger.warning(
+                f"Rejecting result for job '{result.job_id}': sender session '{sender_session_id}' "
+                f"does not match expected owner session '{expected_session}'"
+            )
+            return False
+
+        expected_request = self._job_request_map.get(result.job_id)
+        if expected_request and result.request_id and result.request_id != expected_request:
+            logger.warning(
+                f"Rejecting result for job '{result.job_id}': request_id '{result.request_id}' "
+                f"does not match expected '{expected_request}'"
+            )
             return False
 
         future.set_result(result)
@@ -242,13 +299,17 @@ class JobDispatcher:
                     NoWorkerAvailableError("Remote worker disconnected during job execution")
                 )
             self._job_worker_map.pop(jid, None)
+            self._job_request_map.pop(jid, None)
             self._pending_jobs.pop(jid, None)
 
-    def _cleanup_job(self, job_id: str, worker: ConnectedWorker) -> None:
-        """Clean up pending state and release worker back to idle."""
+    def _cleanup_job(self, job_id: str, worker: ConnectedWorker | None) -> None:
+        """Clean up pending state and release worker capacity."""
         self._pending_jobs.pop(job_id, None)
         self._job_worker_map.pop(job_id, None)
+        self._job_request_map.pop(job_id, None)
 
-        if worker.session_id in self.registry.sessions:
-            worker.status = "idle"
-            worker.active_job_id = None
+        if worker is not None and worker.session_id in self.registry.sessions:
+            worker.in_flight_jobs = max(0, worker.in_flight_jobs - 1)
+            if worker.in_flight_jobs == 0:
+                worker.status = "idle"
+                worker.active_job_id = None

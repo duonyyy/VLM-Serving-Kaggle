@@ -56,11 +56,15 @@ class EvaluationRunner:
 
     def load_dataset(self) -> list[dict[str, Any]]:
         """Load and validate benchmark samples."""
+        if not self.dataset_path.exists():
+            raise FileNotFoundError(f"Benchmark dataset not found at: {self.dataset_path}")
         samples: list[dict[str, Any]] = []
         with self.dataset_path.open("r", encoding="utf-8") as fh:
             for line in fh:
                 if line.strip():
                     samples.append(json.loads(line))
+        if not samples:
+            raise ValueError(f"Benchmark dataset at {self.dataset_path} is empty")
         return samples
 
     def run(self) -> dict[str, Any]:
